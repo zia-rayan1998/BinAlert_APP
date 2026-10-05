@@ -1,0 +1,37 @@
+{
+  "name": "binalert-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BinAlert — AI-powered waste sorting and municipal waste management platform (frontend + API + AI service)",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "node scripts/dev.mjs --only web",
+    "dev:api": "node scripts/dev.mjs --only api",
+    "dev:ai": "node scripts/dev.mjs --only ai",
+    "dev:all": "node scripts/dev.mjs --ai",
+
+    "setup": "node scripts/setup.mjs",
+
+    "install:web": "npm --prefix binalert install",
+    "install:api": "npm --prefix server install",
+    "install:all": "npm run install:web && npm run install:api",
+
+    "build": "npm run build:api && npm run build:web",
+    "build:web": "npm --prefix binalert run build",
+    "build:api": "npm --prefix server run build",
+
+    "typecheck": "npm run typecheck:web && npm run typecheck:api",
+    "typecheck:web": "npm --prefix binalert run typecheck",
+    "typecheck:api": "npm --prefix server run typecheck",
+
+    "db:generate": "npm --prefix server run prisma:generate",
+    "db:migrate": "npm --prefix server run prisma:migrate",
+    "db:seed": "npm --prefix server run db:seed",
+    "db:reset": "npm --prefix server run prisma:reset && npm --prefix server run db:seed",
+    "db:studio": "npm --prefix server run prisma:studio"
+  }
+}

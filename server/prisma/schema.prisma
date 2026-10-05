@@ -1,0 +1,505 @@
+// BinAlert — PostgreSQL schema
+//
+// Generate the client:  npx prisma generate
+// Create migrations:    npx prisma migrate dev --name init
+// Seed demo data:       npm run db:seed
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & access
+// ---------------------------------------------------------------------------
+
+enum Role {
+  CITIZEN
+  WORKER
+  MUNICIPALITY_ADMIN
+  SYSTEM_ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CITIZEN)
+  location     String?
+  avatarHue    Int      @default(152)
+  isActive     Boolean  @default(true)
+
+  ecoScore  Int @default(50)
+  points    Int @default(0)
+  level     Int @default(1)
+
+  municipalityId String?
+  municipality   Municipality? @relation(fields: [municipalityId], references: [id], onDelete: SetNull)
+
+  reports          WasteReport[]        @relation("ReportAuthor")
+  assignments      WasteReport[]        @relation("ReportAssignee")
+  classifications  WasteClassification[]
+  badges           UserBadge[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  passwordResets   PasswordReset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([municipalityId])
+  @@map("users")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_resets")
+}
+
+model Municipality {
+  id            String  @id @default(cuid())
+  name          String
+  city          String
+  plan          String  @default("Starter")
+  status        String  @default("trial")
+  population    Int     @default(0)
+  recyclingRate Float   @default(0)
+  contactEmail  String?
+
+  users   User[]
+  zones   Zone[]
+  bins    Bin[]
+  routes  CollectionRoute[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("municipalities")
+}
+
+model Zone {
+  id             String       @id @default(cuid())
+  name           String
+  municipalityId String
+  municipality   Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+
+  bins    Bin[]
+  reports WasteReport[]
+  routes  CollectionRoute[]
+
+  @@unique([municipalityId, name])
+  @@map("zones")
+}
+
+// ---------------------------------------------------------------------------
+// Waste taxonomy
+// ---------------------------------------------------------------------------
+
+enum WasteCategory {
+  PLASTIC
+  PAPER
+  GLASS
+  METAL
+  ORGANIC
+  E_WASTE
+  MIXED
+  OTHER
+}
+
+model WasteCategoryDef {
+  id             String        @id @default(cuid())
+  category       WasteCategory @unique
+  label          String
+  recommendedBin String
+  binColor       String
+  environmentalTip String
+  isActive       Boolean       @default(true)
+  updatedAt      DateTime      @updatedAt
+
+  classifications WasteClassification[]
+
+  @@map("waste_categories")
+}
+
+// ---------------------------------------------------------------------------
+// AI classification
+// ---------------------------------------------------------------------------
+
+model WasteClassification {
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryDefId    String?
+  categoryDef      WasteCategoryDef? @relation(fields: [categoryDefId], references: [id], onDelete: SetNull)
+
+  category         WasteCategory
+  itemName         String
+  confidence       Float
+  recommendedBin   String
+  binColor         String
+  environmentalTip String
+  weightKg         Float         @default(0)
+  co2SavedKg       Float         @default(0)
+  pointsEarned     Int           @default(0)
+
+  imageUrl  String?
+  source    String  @default("demo") // "demo" | "api"
+  modelId   String?
+  latencyMs Int?
+
+  // Alternative predictions, most confident first.
+  alternatives AlternativePrediction[]
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([category])
+  @@map("waste_classifications")
+}
+
+model AlternativePrediction {
+  id                 String              @id @default(cuid())
+  classificationId   String
+  classification     WasteClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
+  category           WasteCategory
+  confidence         Float
+
+  @@index([classificationId])
+  @@map("alternative_predictions")
+}
+
+// ---------------------------------------------------------------------------
+// Reporting
+// ---------------------------------------------------------------------------
+
+enum ReportType {
+  OVERFLOWING_BIN
+  ILLEGAL_DUMPING
+  UNCOLLECTED_WASTE
+  ROADSIDE_WASTE
+  MIXED_WASTE
+  HAZARDOUS_WASTE
+  OTHER
+}
+
+enum ReportStatus {
+  SUBMITTED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model WasteReport {
+  id           String       @id @default(cuid())
+  reference    String       @unique // BA-2026-00142
+  type         ReportType
+  description  String
+  notes        String?
+  priority     Priority     @default(MEDIUM)
+  status       ReportStatus @default(SUBMITTED)
+  imageUrl     String?
+
+  latitude  Float
+  longitude Float
+  landmark  String
+  zoneId    String?
+  zone      Zone?  @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+
+  userId String
+  user   User   @relation("ReportAuthor", fields: [userId], references: [id], onDelete: Cascade)
+
+  assignedWorkerId String?
+  assignedWorker   User?   @relation("ReportAssignee", fields: [assignedWorkerId], references: [id], onDelete: SetNull)
+
+  resolutionNotes  String?
+  resolutionImageUrl String?
+  resolvedAt       DateTime?
+
+  timeline TimelineEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([userId, createdAt])
+  @@index([zoneId])
+  @@map("reports")
+}
+
+model TimelineEvent {
+  id        String      @id @default(cuid())
+  reportId  String
+  report    WasteReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  status    String
+  note      String?
+  actor     String
+  createdAt DateTime    @default(now())
+
+  @@index([reportId, createdAt])
+  @@map("report_timeline")
+}
+
+// ---------------------------------------------------------------------------
+// Bins & collection
+// ---------------------------------------------------------------------------
+
+enum BinStatus {
+  NORMAL
+  ATTENTION
+  HIGH
+  CRITICAL
+}
+
+model Bin {
+  id             String       @id @default(cuid())
+  code           String       @unique // BIN-A01
+  label          String
+  zoneId         String?
+  zone           Zone?        @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  municipalityId String?
+  municipality   Municipality? @relation(fields: [municipalityId], references: [id], onDelete: SetNull)
+
+  latitude  Float
+  longitude Float
+  status    BinStatus @default(NORMAL)
+  fillLevel Int       @default(0)
+  accepted  WasteCategory[]
+
+  lastCollectedAt DateTime?
+  statusHistory   BinStatusEvent[]
+
+  @@index([zoneId])
+  @@index([status])
+  @@map("bins")
+}
+
+model BinStatusEvent {
+  id        String    @id @default(cuid())
+  binId     String
+  bin       Bin       @relation(fields: [binId], references: [id], onDelete: Cascade)
+  status    BinStatus
+  fillLevel Int
+  createdAt DateTime  @default(now())
+
+  @@index([binId, createdAt])
+  @@map("bin_status")
+}
+
+model CollectionVehicle {
+  id       String @id @default(cuid())
+  name     String
+  plate    String @unique
+  status   String @default("idle") // active | idle | maintenance
+  driver   String?
+  latitude  Float?
+  longitude Float?
+  routeId   String?
+  route     CollectionRoute? @relation(fields: [routeId], references: [id], onDelete: SetNull)
+
+  runs CollectionRun[]
+
+  @@map("collection_vehicles")
+}
+
+model CollectionRoute {
+  id             String  @id @default(cuid())
+  name           String
+  zoneId         String?
+  zone           Zone?   @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  municipalityId String?
+  municipality   Municipality? @relation(fields: [municipalityId], references: [id], onDelete: SetNull)
+
+  stops       Int     @default(0)
+  distanceKm  Float   @default(0)
+  durationMin Int     @default(0)
+  path        Json    @default("[]") // [[lat, lng], ...]
+
+  optimizedDistanceKm Float?
+  optimizedDurationMin Int?
+  fuelSavedL          Float?
+  improvementPct      Float?
+
+  vehicles CollectionVehicle[]
+  runs     CollectionRun[]
+
+  @@map("collection_routes")
+}
+
+enum CollectionRunStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  MISSED
+}
+
+model CollectionRun {
+  id        String            @id @default(cuid())
+  reference String            @unique // CR-2201
+  routeId   String
+  route     CollectionRoute   @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  vehicleId String?
+  vehicle   CollectionVehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  worker String
+  date   DateTime
+  window String
+  stops  Int     @default(0)
+  status CollectionRunStatus @default(SCHEDULED)
+
+  @@index([date])
+  @@index([status])
+  @@map("collection_runs")
+}
+
+// ---------------------------------------------------------------------------
+// Recycling facilities
+// ---------------------------------------------------------------------------
+
+model RecyclingCenter {
+  id       String @id @default(cuid())
+  name     String
+  zone     String
+  latitude Float
+  longitude Float
+  accepts  String[]
+  throughputKgDay Int @default(0)
+
+  @@map("recycling_centers")
+}
+
+// ---------------------------------------------------------------------------
+// Analytics & forecasting
+// ---------------------------------------------------------------------------
+
+model AnalyticsSnapshot {
+  id        String   @id @default(cuid())
+  scope     String   // "city" | zone name
+  period    String   // "2026-10" or "2026-W40"
+  metric    String   // "plastic_kg", "recycling_rate", ...
+  value     Float
+  createdAt DateTime @default(now())
+
+  @@unique([scope, period, metric])
+  @@map("analytics")
+}
+
+model ForecastResult {
+  id          String   @id @default(cuid())
+  scope       String   @default("city")
+  horizonDays Int
+  model       String
+  confidence  Float
+  series      Json     // [{ label, predicted, bandLow, bandHigh }]
+  summary     Json
+  createdAt   DateTime @default(now())
+
+  @@index([scope, horizonDays])
+  @@map("forecast_results")
+}
+
+// ---------------------------------------------------------------------------
+// Gamification
+// ---------------------------------------------------------------------------
+
+model Badge {
+  id          String @id @default(cuid())
+  key         String @unique // first-report
+  name        String
+  description String
+  icon        String
+  threshold   Int    @default(1)
+
+  holders UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  awardedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+model PointTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("points")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications & audit
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  REPORT_SUBMITTED
+  REPORT_ASSIGNED
+  STATUS_CHANGED
+  RESOLVED
+  COLLECTION
+  ACHIEVEMENT
+  POINTS
+}
+
+model Notification {
+  id     String           @id @default(cuid())
+  userId String
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   NotificationType
+  title  String
+  body   String
+  read   Boolean          @default(false)
+  link   String?
+  createdAt DateTime      @default(now())
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorEmail String
+  action    String
+  target    String
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}

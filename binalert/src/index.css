@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ba-radius: 1rem;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas text-ink-900 font-sans antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight text-ink-950;
+  }
+
+  ::selection {
+    @apply bg-emerald2-200 text-forest-950;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-emerald2-500 ring-offset-2 ring-offset-canvas;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ink-200 rounded-full border-2 border-solid border-canvas;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-300;
+  }
+}
+
+@layer components {
+  .ba-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .ba-card {
+    @apply rounded-xl2 border border-ink-100 bg-white shadow-card;
+  }
+
+  .ba-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-500;
+  }
+
+  .ba-num {
+    @apply font-display tabular-nums tracking-tight;
+  }
+
+  .ba-input {
+    @apply w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 transition-shadow focus:border-emerald2-500 focus:outline-none focus:ring-2 focus:ring-emerald2-500/25 disabled:cursor-not-allowed disabled:bg-ink-50;
+  }
+
+  .ba-grid-pattern {
+    background-image:
+      linear-gradient(to right, rgba(18, 48, 36, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(18, 48, 36, 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  .ba-topo {
+    background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.14) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+
+  .ba-skeleton {
+    @apply relative overflow-hidden rounded-md bg-ink-100;
+  }
+  .ba-skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .delay-75 { animation-delay: 75ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-225 { animation-delay: 225ms; }
+  .delay-300 { animation-delay: 300ms; }
+}
+
+/* ---------- Leaflet theming ---------- */
+.leaflet-container {
+  @apply rounded-xl2 font-sans;
+  background: #e8ece9;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply rounded-xl shadow-lift;
+  border-radius: 14px;
+}
+
+.leaflet-popup-content {
+  margin: 0;
+  @apply text-sm;
+}
+
+.ba-marker {
+  background: transparent;
+  border: none;
+}
+
+.ba-marker-dot {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(18, 24, 21, 0.35);
+}
+
+.ba-marker-dot.critical::before,
+.ba-marker-dot.high::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  background: inherit;
+  opacity: 0.5;
+  animation: pulse-ring 1.6s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.7; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+@media print {
+  .no-print { display: none !important; }
+}

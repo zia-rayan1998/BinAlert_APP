@@ -1,0 +1,18 @@
+# BinAlert AI service — Python 3.11+
+# Install with:  python -m venv .venv ; .venv\Scripts\Activate.ps1 ; pip install -r requirements.txt
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.4
+pydantic-settings==2.7.0
+pillow==11.0.0
+numpy==2.2.1
+
+# --- Optional: real model inference ---------------------------------------
+# Uncomment the runtime that matches your exported model, then set MODEL_PATH
+# in .env. Without these the service runs its clearly-labelled heuristic and
+# reports `mode: "heuristic"` on every response — it never pretends to be a
+# trained network.
+# onnxruntime==1.20.1
+# torch==2.5.1

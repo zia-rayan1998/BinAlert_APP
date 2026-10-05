@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+
+# Environment — never commit secrets. Only .env.example files are tracked.
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Python (AI service)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# AI model artifacts (downloaded locally, not version controlled)
+models/
+*.onnx
+*.pt
+*.pth
+
+# Uploaded files created at runtime by the API
+server/uploads/
+
+# Database / Prisma local artifacts
+*.sqlite
+*.sqlite-journal
+prisma/migrations/**/migration_lock.toml.bak
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Scratch
+.tmp-assets/
+.tmp/
+coverage/
